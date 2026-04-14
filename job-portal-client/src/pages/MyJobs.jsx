@@ -24,7 +24,7 @@ const MyJobs = () => {
 
     setIsLoading(true);
     const token = localStorage.getItem("genius-token");
-    fetch(`${import.meta.env.VITE_API_URL}/myJobs/${user?.email}`, {
+    fetch(`${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/myJobs/${user?.email}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -93,7 +93,7 @@ const MyJobs = () => {
   // delete a job
   const handleDelete = (id) => {
     const token = localStorage.getItem("genius-token");
-    fetch(`${import.meta.env.VITE_API_URL}/job/${id}`, {
+    fetch(`${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/job/${id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,

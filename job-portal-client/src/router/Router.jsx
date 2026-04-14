@@ -54,7 +54,7 @@ const router = createBrowserRouter([
           </CompanyRoute>
         ),
         loader: ({ params }) =>
-          fetch(`${import.meta.env.VITE_API_URL}/all-jobs/${params.id}`),
+          fetch(`${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/all-jobs/${params.id}`),
       },
       {
         path: "/jobs/:id",

@@ -9,7 +9,7 @@ const AuthProvider = ({children}) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const API_URL = import.meta.env.VITE_API_URL;
+    const API_URL = (import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com");
 
     const createUser = async (email, password, name) => {
         setLoading(true);

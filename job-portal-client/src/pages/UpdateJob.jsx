@@ -35,7 +35,7 @@ const UpdateJob = () => {
     data.skills = selectedOption;
     const token = localStorage.getItem("genius-token");
 
-    fetch(`${import.meta.env.VITE_API_URL}/update-job/${id}`, {
+    fetch(`${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/update-job/${id}`, {
       method: "PATCH",
       headers: {
         "Content-type": "application/json",

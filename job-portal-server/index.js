@@ -57,11 +57,10 @@ async function run() {
     const usersCollection = db.collection("users");
     const applicationsCollection = db.collection("applications");
 
-    const isSmtpConfigured = Boolean(
-      process.env.SMTP_HOST &&
-      process.env.SMTP_USER &&
-      process.env.SMTP_PASS
+    const missingSmtpEnvKeys = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'].filter(
+      (key) => !process.env[key]
     );
+    const isSmtpConfigured = missingSmtpEnvKeys.length === 0;
 
     const mailTransporter = isSmtpConfigured
       ? nodemailer.createTransport({
@@ -76,7 +75,9 @@ async function run() {
       : null;
 
     if (!mailTransporter) {
-      console.warn('Email notifications are disabled. Configure SMTP_* variables in .env to enable them.');
+      console.warn(
+        `Email notifications are disabled. Missing env vars: ${missingSmtpEnvKeys.join(', ')}`
+      );
     } else {
       try {
         await mailTransporter.verify();
@@ -462,10 +463,14 @@ async function run() {
         };
 
         await usersCollection.updateOne(filter, update);
-        await sendSubscriptionEmail({ email, name: req.user?.name });
+
+        // Avoid blocking API response on SMTP delays/timeouts in cloud environments.
+        sendSubscriptionEmail({ email, name: req.user?.name }).catch((mailError) => {
+          console.error('Async subscription email error:', mailError?.message || mailError);
+        });
 
         res.status(200).json({
-          message: 'You are subscribed to job alerts. A confirmation email has been sent.',
+          message: 'You are subscribed to job alerts. Confirmation email will be sent shortly.',
           subscribed: true,
           email,
         });
@@ -508,14 +513,18 @@ async function run() {
         };
 
         await applicationsCollection.insertOne(applicationDoc);
-        await sendJobApplicationConfirmationEmail({
+
+        // Avoid blocking API response on SMTP delays/timeouts in cloud environments.
+        sendJobApplicationConfirmationEmail({
           email: req.user.email,
           name: req.user.name,
           job,
+        }).catch((mailError) => {
+          console.error('Async application confirmation email error:', mailError?.message || mailError);
         });
 
         res.status(201).json({
-          message: 'Application submitted successfully. A confirmation email has been sent.',
+          message: 'Application submitted successfully. Confirmation email will be sent shortly.',
           applied: true,
         });
       } catch (error) {

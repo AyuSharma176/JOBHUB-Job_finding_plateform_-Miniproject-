@@ -23,7 +23,7 @@ const CreateJob = () => {
     const token = localStorage.getItem("genius-token");
     const isCompanyPath = location.pathname.startsWith("/company");
 
-    fetch(`${import.meta.env.VITE_API_URL}/post-job`, {
+    fetch(`${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/post-job`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

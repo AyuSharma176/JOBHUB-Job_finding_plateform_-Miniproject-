@@ -17,7 +17,7 @@ const JobDetails = () => {
   const [hasApplied, setHasApplied] = useState(false);
   const [checkingApplied, setCheckingApplied] = useState(false);
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/all-jobs/${id}`)
+    fetch(`${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/all-jobs/${id}`)
       .then((res) => res.json())
       .then((data) => setJob(data))
       .catch(() => toast.error("Failed to load job details."));
@@ -39,7 +39,7 @@ const JobDetails = () => {
       setCheckingApplied(true);
       try {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/apply-job-status/${id}`,
+          `${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/apply-job-status/${id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -81,7 +81,7 @@ const JobDetails = () => {
         }
 
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL}/apply-job/${id}`,
+          `${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/apply-job/${id}`,
           { resumeUrl: url.trim() },
           {
             headers: {

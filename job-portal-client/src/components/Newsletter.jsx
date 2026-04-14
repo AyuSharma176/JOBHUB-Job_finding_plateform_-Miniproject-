@@ -9,7 +9,7 @@ const Newsletter = () => {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = (import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com");
 
   useEffect(() => {
     if (user?.email) {

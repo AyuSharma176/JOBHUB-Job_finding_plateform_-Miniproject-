@@ -30,7 +30,7 @@ const Home = () => {
     }
 
     setIsLoading(true);
-    fetch(`${import.meta.env.VITE_API_URL}/all-jobs`)
+    fetch(`${(import.meta.env.VITE_API_URL || "https://jobhub-job-finding-plateform-miniproject.onrender.com")}/all-jobs`)
       .then((res) => res.json())
       .then((data) => {
         setJobs(data);
