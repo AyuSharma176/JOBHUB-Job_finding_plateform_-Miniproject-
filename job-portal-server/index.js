@@ -88,56 +88,70 @@ async function run() {
     }
 
     const sendSubscriptionEmail = async ({ email, name }) => {
-      if (!mailTransporter || !email) return;
-
-      try {
-        await mailTransporter.sendMail({
-          from: process.env.MAIL_FROM || process.env.SMTP_USER,
-          to: email,
-          subject: 'Subscription confirmed - Job Portal',
-          html: `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-              <h2>Welcome to Job Portal</h2>
-              <p>Hi ${name || 'there'},</p>
-              <p>Your email subscription for job updates is now active.</p>
-              <p>You will receive notifications when companies post new jobs or update existing ones.</p>
-            </div>
-          `,
-        });
-      } catch (mailError) {
-        console.error('Failed to send subscription email:', mailError.message);
+      if (!mailTransporter) {
+        return { ok: false, reason: 'smtp_not_configured' };
       }
-    }
+
+      if (!email) {
+        return { ok: false, reason: 'missing_email' };
+      }
+
+      const info = await mailTransporter.sendMail({
+        from: process.env.MAIL_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: 'Subscription confirmed - Job Portal',
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Welcome to Job Portal</h2>
+            <p>Hi ${name || 'there'},</p>
+            <p>Your email subscription for job updates is now active.</p>
+            <p>You will receive notifications when companies post new jobs or update existing ones.</p>
+          </div>
+        `,
+      });
+
+      return {
+        ok: true,
+        messageId: info?.messageId,
+        accepted: info?.accepted || [],
+        rejected: info?.rejected || [],
+      };
+    };
 
     const sendJobApplicationConfirmationEmail = async ({ email, name, job }) => {
-      if (!mailTransporter || !email || !job) return;
-
-      try {
-        const jobTitle = job.jobTitle || job.title || 'the selected role';
-        const companyName = job.companyName || 'the company';
-        const location = job.jobLocation || job.location || 'Not specified';
-        const detailsUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/all-jobs/${job._id || ''}`;
-
-        await mailTransporter.sendMail({
-          from: process.env.MAIL_FROM || process.env.SMTP_USER,
-          to: email,
-          subject: `Application received: ${jobTitle}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-              <h2>Application received</h2>
-              <p>Hi ${name || 'there'},</p>
-              <p>We have received your application for <strong>${jobTitle}</strong>.</p>
-              <p><strong>Company:</strong> ${companyName}</p>
-              <p><strong>Location:</strong> ${location}</p>
-              <p>Our team will review your profile and contact you if your application is shortlisted.</p>
-              <p><a href="${detailsUrl}">View job details</a></p>
-            </div>
-          `,
-        });
-      } catch (mailError) {
-        console.error('Failed to send application confirmation email:', mailError.message);
+      if (!mailTransporter || !email || !job) {
+        return { ok: false };
       }
-    }
+
+      const jobTitle = job.jobTitle || job.title || 'the selected role';
+      const companyName = job.companyName || 'the company';
+      const location = job.jobLocation || job.location || 'Not specified';
+      const detailsUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/all-jobs/${job._id || ''}`;
+
+      const info = await mailTransporter.sendMail({
+        from: process.env.MAIL_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: `Application received: ${jobTitle}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Application received</h2>
+            <p>Hi ${name || 'there'},</p>
+            <p>We have received your application for <strong>${jobTitle}</strong>.</p>
+            <p><strong>Company:</strong> ${companyName}</p>
+            <p><strong>Location:</strong> ${location}</p>
+            <p>Our team will review your profile and contact you if your application is shortlisted.</p>
+            <p><a href="${detailsUrl}">View job details</a></p>
+          </div>
+        `,
+      });
+
+      return {
+        ok: true,
+        messageId: info?.messageId,
+        accepted: info?.accepted || [],
+        rejected: info?.rejected || [],
+      };
+    };
 
     const sendJobUpdateEmails = async ({ type, job }) => {
       if (!mailTransporter) return;
@@ -437,11 +451,27 @@ async function run() {
           return res.status(400).json({ message: 'No email found for authenticated user' });
         }
 
-        await sendSubscriptionEmail({ email, name: req.user?.name });
-        res.status(200).json({ message: `Test email sent to ${email}` });
+        const mailResult = await sendSubscriptionEmail({ email, name: req.user?.name });
+        if (!mailResult?.ok) {
+          return res.status(502).json({
+            message: 'Test email failed to send from SMTP provider.',
+            emailSent: false,
+            reason: mailResult?.reason || 'send_failed',
+          });
+        }
+
+        res.status(200).json({
+          message: `Test email sent to ${email}`,
+          emailSent: true,
+          messageId: mailResult.messageId,
+        });
       } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to send test email' });
+        console.error('Test email failed:', error?.message || error);
+        res.status(500).json({
+          message: 'Failed to send test email',
+          emailSent: false,
+          reason: 'smtp_send_error',
+        });
       }
     });
 
@@ -464,15 +494,30 @@ async function run() {
 
         await usersCollection.updateOne(filter, update);
 
-        // Avoid blocking API response on SMTP delays/timeouts in cloud environments.
-        sendSubscriptionEmail({ email, name: req.user?.name }).catch((mailError) => {
-          console.error('Async subscription email error:', mailError?.message || mailError);
-        });
+        let mailResult = { ok: false, reason: 'unknown' };
+        try {
+          mailResult = await sendSubscriptionEmail({ email, name: req.user?.name });
+        } catch (mailError) {
+          console.error('Subscription email send failed:', mailError?.message || mailError);
+          mailResult = { ok: false, reason: 'smtp_send_error' };
+        }
 
-        res.status(200).json({
-          message: 'You are subscribed to job alerts. Confirmation email will be sent shortly.',
+        if (mailResult.ok) {
+          return res.status(200).json({
+            message: 'You are subscribed and confirmation email has been sent.',
+            subscribed: true,
+            email,
+            emailSent: true,
+            messageId: mailResult.messageId,
+          });
+        }
+
+        return res.status(202).json({
+          message: 'You are subscribed, but confirmation email could not be sent.',
           subscribed: true,
           email,
+          emailSent: false,
+          reason: mailResult.reason,
         });
       } catch (error) {
         console.error(error);
@@ -514,18 +559,25 @@ async function run() {
 
         await applicationsCollection.insertOne(applicationDoc);
 
-        // Avoid blocking API response on SMTP delays/timeouts in cloud environments.
-        sendJobApplicationConfirmationEmail({
-          email: req.user.email,
-          name: req.user.name,
-          job,
-        }).catch((mailError) => {
-          console.error('Async application confirmation email error:', mailError?.message || mailError);
-        });
+        let applicationMailResult = { ok: false };
+        try {
+          applicationMailResult = await sendJobApplicationConfirmationEmail({
+            email: req.user.email,
+            name: req.user.name,
+            job,
+          });
+        } catch (mailError) {
+          console.error('Application confirmation email failed:', mailError?.message || mailError);
+          applicationMailResult = { ok: false };
+        }
 
         res.status(201).json({
-          message: 'Application submitted successfully. Confirmation email will be sent shortly.',
+          message: applicationMailResult.ok
+            ? 'Application submitted successfully. Confirmation email sent.'
+            : 'Application submitted successfully, but confirmation email could not be sent.',
           applied: true,
+          emailSent: Boolean(applicationMailResult.ok),
+          messageId: applicationMailResult.messageId,
         });
       } catch (error) {
         if (error?.code === 11000) {
