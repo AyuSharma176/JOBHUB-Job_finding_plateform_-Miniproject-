@@ -1,6 +1,6 @@
 import React from "react";
 import { FiMapPin, FiSearch } from "react-icons/fi";
-
+// Banner 
 const Banner = ({ handleInputChange, query, handleLocationChange, location }) => {
   return (
     <div className="max-w-screen-2xl container mx-auto xl:px-24 md:py-20 py-14 px-4">
